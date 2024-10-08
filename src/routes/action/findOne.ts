@@ -5,28 +5,18 @@ import { z } from "zod";
 
 const app = new Hono();
 
-// Schema for the request body
+// Define constants for the fixed database, collection, and MongoDB URI
+const DATABASE_NAME = "vibeclub"; // Set your database name
+const COLLECTION_NAME = "users"; // Set your collection name
+const MONGODB_URI = "mongodb+srv://solyoung998:9OWqrHrh3sdhr5bN@cluster0.dcmdx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Set your MongoDB URI
+
+// Schema for the request body (filter, projection, etc.)
 const bodySchema = z.object({
-	database: z.string(),
-	collection: z.string(),
 	filter: z.record(z.any()),
 	projection: z.record(z.number()).optional(),
 	sort: z.record(z.number()).optional(),
 	limit: z.number().optional(),
 	skip: z.number().optional(),
-});
-
-// Schema for the request headers
-const headerSchema = z.object({
-	authorization: z
-		.string()
-		.startsWith("mongodb")
-		.regex(
-			new RegExp(
-				"^(mongodb(?:\\+srv)?(\\:)(?:\\/{2}){1})(?:\\w+\\:\\w+\\@)?(\\w+?(?:\\.\\w+?)*)(\\:)(\\d+(?:\\/){0,1})(?:\\/\\w+?)?(?:\\?\\w+?\\=\\w+?(?:\\&\\w+?\\=\\w+?)*)?$",
-				"gm"
-			)
-		),
 });
 
 app.post(
@@ -37,20 +27,20 @@ app.post(
 	async (c) => {
 		let client;
 		try {
-			client = await connectToClient(
-				c.req.header("authorization") as string
-			);
+			// Use the fixed URI instead of getting it from headers
+			client = await connectToClient(MONGODB_URI);
+
 			const parsedBody = bodySchema.parse(await c.req.json());
 
-			const db = client.db(parsedBody.database);
-			const collection = db.collection(parsedBody.collection);
+			const db = client.db(DATABASE_NAME); // Use the fixed database
+			const collection = db.collection(COLLECTION_NAME); // Use the fixed collection
 			const result = await collection.findOne(parsedBody.filter, {
 				projection: parsedBody.projection,
 			});
 
 			await client.close();
 			return c.json({ document: result });
-		} catch {
+		} catch (error) {
 			if (client) {
 				await client.close();
 			}
